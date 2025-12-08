@@ -1,0 +1,1 @@
+# Ijtimoiy_ummumiy_pedagokiya
