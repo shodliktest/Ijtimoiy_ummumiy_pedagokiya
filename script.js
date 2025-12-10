@@ -2,7 +2,7 @@
 const AUTH_KEY = 'test_ijtimoiyyashodlikauthenticated';
 const VALID_CREDENTIALS = {
     username: 'Ijtimoiy_2026',
-    password: 'test1221'
+    password: 'Odina1221'
 };
 
 // ===== TEST SAVOLLARI (400 TA) =====
@@ -4298,6 +4298,7 @@ function updateTimer() {
     document.getElementById('timer').textContent = formattedTime;
 
 }
+
 
 
 
