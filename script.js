@@ -1,8 +1,8 @@
 // ===== PAROL TIZIMI =====
 const AUTH_KEY = 'test_ijtimoiyyashodlikauthenticated';
 const VALID_CREDENTIALS = {
-    username: '11112222',
-    password: '11112222'
+    username: '11114444',
+    password: '11114444'
 };
 
 // ===== TEST SAVOLLARI (400 TA) =====
@@ -4298,6 +4298,7 @@ function updateTimer() {
     document.getElementById('timer').textContent = formattedTime;
 
 }
+
 
 
 
