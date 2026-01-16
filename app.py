@@ -100,3 +100,4 @@ st.markdown("---")
 st.write(f"Admin ID: `{ADMIN_ID}`")
 st.write("Bot statusi: **Online** 🟢")
                                 
+
