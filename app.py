@@ -6,7 +6,7 @@ import threading
 # --- SECRETS ---
 try:
     BOT_TOKEN = st.secrets["BOT_TOKEN"]
-    ADMIN_GROUP_ID = int(st.secrets["ADMIN_GROUP_ID"])
+    ADMIN_GROUP_ID = 1416457518
     WEB_APP_URL = st.secrets["WEB_APP_URL"]
 except:
     st.error("❌ BOT_TOKEN yoki ADMIN_GROUP_ID topilmadi!")
@@ -61,4 +61,5 @@ def start_bot():
     bot.infinity_polling()
 
 threading.Thread(target=start_bot, daemon=True).start()
+
 st.success("✅ Support bot ishga tushdi!")
