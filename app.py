@@ -2,102 +2,110 @@ import streamlit as st
 import telebot
 from telebot import types
 import threading
+import re
 
 # --- SAHIFA SOZLAMALARI ---
-st.set_page_config(page_title="Mirzavali Support", page_icon="👤")
-st.title("🛡️ Professional Admin Panel")
+st.set_page_config(page_title="Mirzavali Support Bot", page_icon="👨‍💻")
+st.title("👨‍💻 Mirzavali Support Control Panel")
 
-# --- SECRETS ---
+# --- SECRETS (Streamlit Dashboarddan olinadi) ---
 try:
     BOT_TOKEN = st.secrets["BOT_TOKEN"]
     ADMIN_ID = int(st.secrets["ADMIN_GROUP_ID"])
-except Exception:
-    st.error("❌ Secrets sozlamalarini tekshiring!")
+except Exception as e:
+    st.error("Secrets sozlamalari topilmadi! (BOT_TOKEN yoki ADMIN_GROUP_ID)")
     st.stop()
 
-# --- BOT VA XOTIRA ---
+# --- BOTNI INITIALIZATSIYA QILISH ---
 if "bot" not in st.session_state:
     st.session_state.bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
-# Xabarlarni bog'lash uchun xotira (Admin xabar ID -> Foydalanuvchi ID)
-if "msg_map" not in st.session_state:
-    st.session_state.msg_map = {}
 
 bot = st.session_state.bot
 
-# --- 1. START KOMANDASI (Interaktiv) ---
+# --- 1. START KOMANDASI (Faqat foydalanuvchi uchun) ---
 @bot.message_handler(commands=['start'])
-def welcome(m):
-    uid = m.chat.id
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🌐 Loyihalar", url="https://t.me/shodliktest"))
+def handle_start(m):
+    user_id = m.chat.id
+    first_name = m.from_user.first_name
     
+    # Siz xohlagan interaktiv kutib olish matni
     welcome_text = (
-        f"<b>Assalomu alaykum, {m.from_user.first_name}!</b> 👋\n\n"
-        f"Siz hozirda <b>Otavaliyev Mirzavali</b> bilan bevosita muloqot chatidasiz.\n\n"
-        f"💬 <i>Savolingiz yoki taklifingiz bo'lsa, pastdan yozib qoldiring. "
-        f"Mirzavali tez orada sizga javob beradi.</i>"
+        f"<b>Assalomu alaykum, {first_name}!</b> 👋\n\n"
+        f"Siz <b>Otavaliyev Mirzavali</b> bilan muloqot chatidasiz. 🤝\n\n"
+        "Menga o'zingizni qiziqtirgan savollar, takliflar yoki loyiha bo'yicha "
+        "murojaatlaringizni yozib qoldirishingiz mumkin. "
+        "Men tez orada sizga shaxsan javob beraman!"
     )
-    bot.send_message(uid, welcome_text, reply_markup=markup)
+    
+    # Interaktiv tugma qo'shish (ixtiyoriy)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🌐 Portfolio / Kanal", url="https://t.me/shodliktest"))
+    
+    bot.send_message(user_id, welcome_text, reply_markup=markup)
 
-# --- 2. FOYDALANUVCHI XABARINI ADMINGA YUBORISH ---
+# --- 2. FOYDALANUVCHI XABARINI QABUL QILISH ---
 @bot.message_handler(func=lambda m: m.chat.id != ADMIN_ID)
-def forward_to_admin(m):
-    uid = m.chat.id
+def handle_user_msg(m):
+    user_id = m.chat.id
     user_name = m.from_user.full_name
     
-    admin_msg_text = (
+    # Adminga boradigan maxsus "Control Message"
+    # ID_TAG orqali bot reply qilinganda kimga javob berishni aniq biladi
+    admin_header = (
         f"📩 <b>Yangi murojaat!</b>\n\n"
         f"👤 <b>Kimdan:</b> {user_name}\n"
-        f"🆔 <b>ID:</b> {uid}\n"
-        f"💬 <b>Xabar:</b> {m.text if m.text else '[Media]'}"
+        f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
+        f"--------------------------\n"
+        f"💬 <b>Xabar:</b> {m.text if m.text else '[Media/Fayl]'}\n\n"
+        f"👉 Javob berish uchun <b>ushbu xabarga</b> Reply qiling.\n"
+        f"ID_TAG: #{user_id}" 
     )
     
     try:
-        # Adminga yuboramiz
-        sent_msg = bot.send_message(ADMIN_ID, admin_msg_text)
+        # Adminga nazorat xabarini yuborish
+        bot.send_message(ADMIN_ID, admin_header)
         
-        # ENG MUHIMI: Xabar ID-sini foydalanuvchi ID-si bilan bog'laymiz
-        st.session_state.msg_map[sent_msg.message_id] = uid
-        
-        # Agar rasm bo'lsa, uni ham yuborish
+        # Agar rasm yoki fayl bo'lsa, uni alohida forward qilish
         if m.content_type != 'text':
-            bot.forward_message(ADMIN_ID, uid, m.message_id)
+            bot.forward_message(ADMIN_ID, user_id, m.message_id)
             
-        bot.send_message(uid, "✅ <b>Xabaringiz yetkazildi.</b>")
+        # Foydalanuvchiga tasdiq
+        bot.send_message(user_id, "✅ Xabaringiz Mirzavaliga yetkazildi.")
     except Exception as e:
-        print(f"Xatolik: {e}")
+        print(f"Forwarding error: {e}")
 
-# --- 3. ADMIN JAVOBI (Reply orqali - Matn qidirmaydi!) ---
+# --- 3. ADMIN JAVOBI (Reply orqali ID ni aniqlash) ---
 @bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID)
-def admin_reply(m):
+def handle_admin_reply(m):
     if m.reply_to_message:
-        # Xotiradan ushbu xabar kimga tegishli ekanligini olamiz
-        target_user_id = st.session_state.msg_map.get(m.reply_to_message.message_id)
+        reply_to_text = m.reply_to_message.text or m.reply_to_message.caption
         
-        if target_user_id:
-            try:
-                bot.send_message(target_user_id, f"✉️ <b>Mirzavali javob berdi:</b>\n\n{m.text}")
-                bot.reply_to(m, "🚀 Javobingiz muvaffaqiyatli yuborildi.")
-            except Exception as e:
-                bot.reply_to(m, f"❌ Yuborishda xatolik: {e}")
-        else:
-            # Agar bot o'chib yongan bo'lsa, xotira tozalanadi, shuning uchun fallback (zaxira)
-            bot.reply_to(m, "⚠️ Xabar xotirada topilmadi. Iltimos, foydalanuvchining oxirgi xabariga javob bering.")
+        if reply_to_text:
+            # Xabar ichidan ID_TAG ni qidirib topish (eng ishonchli usul)
+            match = re.search(r"ID_TAG: #(\d+)", reply_to_text)
+            
+            if match:
+                target_id = int(match.group(1))
+                try:
+                    bot.send_message(target_id, f"✉️ <b>Mirzavali javob berdi:</b>\n\n{m.text}")
+                    bot.reply_to(m, "🚀 Javobingiz yuborildi!")
+                except Exception as e:
+                    bot.reply_to(m, f"❌ Xatolik: Yuborib bo'lmadi ({e})")
+            else:
+                bot.reply_to(m, "⚠️ Xatolik: Bu xabardan foydalanuvchi ID-sini topa olmadim. Iltimos, ID yozilgan 'Control Message'ga reply qiling.")
     else:
-        bot.reply_to(m, "☝️ Javob berish uchun foydalanuvchi xabariga <b>Reply</b> qiling.")
+        bot.reply_to(m, "ℹ️ Foydalanuvchiga javob berish uchun uning xabariga <b>Reply</b> qiling.")
 
-# --- BOTNI ISHGA TUSHIRISH ---
-def start_bot():
+# --- BOTNI THREADDA ISHGA TUSHIRISH ---
+def start_polling():
+    # skip_pending=True bot o'chiq vaqtida kelgan eski xabarlarni e'tiborsiz qoldiradi
+    # Bu API errorlarni kamaytiradi
     bot.infinity_polling(skip_pending=True)
 
-if "bot_running" not in st.session_state:
-    thread = threading.Thread(target=start_bot, daemon=True)
+if "bot_thread" not in st.session_state:
+    thread = threading.Thread(target=start_polling, daemon=True)
     thread.start()
-    st.session_state.bot_running = True
-    st.success("✨ Tizim muvaffaqiyatli yoqildi!")
+    st.session_state.bot_thread = True
+    st.success("🚀 Support Bot muvaffaqiyatli ishga tushdi!")
 
-st.markdown("---")
-st.write(f"Admin ID: `{ADMIN_ID}`")
-st.write("Bot statusi: **Online** 🟢")
-                                
-
+st.info("Bot hozirda xabarlarni qabul qilishga tayyor. Admin panel orqali kuzatib borishingiz mumkin.")
