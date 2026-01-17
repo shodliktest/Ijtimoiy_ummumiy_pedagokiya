@@ -392,3 +392,4 @@ if __name__ == "__main__":
     print(f"👤 Admin ID: {ADMIN_ID}")
     print("⏳ Xabarlar kutilmoqda...")
     bot.infinity_polling()
+
